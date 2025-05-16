@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>货物运输计算</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh; /* 确保背景覆盖整个视口 */
+            background: linear-gradient(45deg, #0b1a30 20%, #122545 50%, #081224 80%);
+            background-size: 200% 200%;
+            animation: bgFlow 12s ease-in-out infinite; /* 背景流动动画 */
+            position: relative;
+            color: #e0f2ff; /* 浅蓝文字更适配深色背景 */
+        }
+
+        @keyframes bgFlow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        body::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                -45deg,
+                transparent,
+                transparent 39px,
+                rgba(45, 70, 110, 0.15) 39px,
+                rgba(45, 70, 110, 0.15) 40px
+            ), repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 39px,
+                rgba(45, 70, 110, 0.1) 39px,
+                rgba(45, 70, 110, 0.1) 40px
+            ); /* 双向斜纹模拟金属板材纹理 */
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #result {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        /* 新增网格样式 */
+        #gridContainer {
+            display: grid;
+            grid-template-columns: repeat(5, 60px); /* 固定列宽 */
+            grid-template-rows: repeat(4, 60px);    /* 固定行高 */
+            gap: 15px; /* 增大间距避免立方体遮挡 */
+            margin-top: 30px;
+            perspective: 800px; /* 调整透视距离增强立体感 */
+        }
+        .grid-item {
+            position: relative;
+            width: 60px;
+            height: 60px;
+            transform-style: preserve-3d;
+            transform: rotateX(-20deg) rotateY(30deg); /* 初始观察角度 */
+        }
+        /* 立方体六个面 */
+        .grid-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #333;
+            font-weight: bold;
+        }
+        .front { transform: translateZ(10px); background: rgba(255,255,255,0.9); } /* 前面（Z轴正方向） */
+        .back { transform: rotateY(180deg) translateZ(10px); background: #eee; } /* 后面（Z轴负方向） */
+        .left { transform: rotateY(-90deg) translateZ(10px); background: #ddd; width: 20px; left: -10px; } /* 左面（X轴负方向） */
+        .right { transform: rotateY(90deg) translateZ(10px); background: #ddd; width: 20px; right: -10px; } /* 右面（X轴正方向） */
+        .top { transform: rotateX(90deg) translateZ(10px); background: #ccc; height: 20px; top: -10px; } /* 顶面（Y轴正方向） */
+        .bottom { transform: rotateX(-90deg) translateZ(10px); background: #bbb; height: 20px; bottom: -10px; } /* 底面（Y轴负方向） */
+    
+        /* 优化闪烁动画（作用于前面） */
+        @keyframes blink {
+            0% { background-color: #ff4444; transform: translateZ(10px) scale(1); }
+            50% { background-color: #ff9999; transform: translateZ(15px) scale(1.05); }
+            100% { background-color: #ff4444; transform: translateZ(10px) scale(1); }
+        }
+        .grid-item.highlight .front {
+            animation: blink 1.2s infinite;
+        }
+
+        /* 优化内容容器样式 */
+        form {
+            background: rgba(10, 25, 47, 0.85);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 20, 50, 0.3);
+            margin-bottom: 30px;
+        }
+
+        input {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(100, 255, 218, 0.15);
+            color: #e0f2ff;
+            border-radius: 6px;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #64ffda;
+            box-shadow: 0 0 0 2px rgba(100, 255, 218, 0.1);
+        }
+
+        button {
+            background: #64ffda;
+            color: #0a192f;
+            font-weight: 500;
+            border-radius: 6px;
+            transition: transform 0.2s;
+        }
+
+        button:hover {
+            background: #73ffdf;
+            transform: translateY(-1px);
+        }
+
+        #result {
+            color: #64ffda;
+            font-size: 1.1em;
+        }
+    </style>
+</head>
+<body>
+    <h1>货物运输计算</h1>
+    <form id="inputForm">
+        <label for="weight">货物重量 (单位: kg):</label>
+        <input type="number" id="weight" step="any" required>
+
+        <label for="height">货物高度 (单位: m):</label>
+        <input type="number" id="height" step="any" required>
+
+        <label for="length">货物长度 (单位: m):</label>
+        <input type="number" id="length" step="any" required>
+
+        <label for="trips">运输次数:</label>
+        <input type="number" id="trips" step="1" required>
+
+        <button type="submit">计算</button>
+    </form>
+    <div id="result"></div>
+    <div id="gridContainer"></div>
+
+    <script>
+        // 定义参数的平均值
+        const alpha = 9.5934;
+        const beta = 3.4046;
+        const gamma = 1219.0337;
+        const delta = -2.5939;
+
+        // 假设的常量
+        const carMass = 1000; // 汽车质量 (kg)
+        const carPower = 150; // 汽车功率 (kW)
+        const g = 9.81; // 重力加速度 (m/s²)
+
+        // 新增：区间与编号的映射（根据用户需求定义）
+        const scoreRanges = {
+            '[0,10)': [15, 20],
+            '[10,20)': [10, 14, 19],
+            '[20,30)': [13, 18],
+            '[30,40)': [5, 9],
+            '[40,50)': [12, 17],
+            '[50,60)': [8],
+            '[60,70)': [4],
+            '[70,80)': [11, 16],
+            '[80,90)': [7],
+            '[90,100)': [3],
+            '[100,110)': [6],
+            '[110,120)': [2],
+            '[120,130]': [1]
+        };
+
+        // 初始化网格（页面加载时创建）
+        function initGrid() {
+            const gridContainer = document.getElementById('gridContainer');
+            for (let i = 1; i <= 20; i++) {
+                const cube = document.createElement('div');
+                cube.className = 'grid-item';
+                
+                // 创建六个面
+                const front = document.createElement('div');
+                front.className = 'grid-face front';
+                front.textContent = i;
+                
+                const back = document.createElement('div');
+                back.className = 'grid-face back';
+                
+                const left = document.createElement('div');
+                left.className = 'grid-face left';
+                
+                const right = document.createElement('div');
+                right.className = 'grid-face right';
+                
+                const top = document.createElement('div');
+                top.className = 'grid-face top';
+                
+                const bottom = document.createElement('div');
+                bottom.className = 'grid-face bottom';
+                
+                // 组装立方体
+                cube.append(front, back, left, right, top, bottom);
+                gridContainer.appendChild(cube);
+            }
+        }
+
+        // 清除高亮
+        function clearHighlights() {
+            const items = document.getElementsByClassName('grid-item');
+            for (const item of items) {
+                item.classList.remove('highlight');
+            }
+        }
+
+        // 根据value值高亮对应格子
+        function highlightGrid(value) {
+            clearHighlights(); // 先清除之前的高亮
+            // 查找对应的区间
+            let targetRange = null;
+            for (const [range, numbers] of Object.entries(scoreRanges)) {
+                const [min, max] = range.replace(/\[|\)|\]/g, '').split(',').map(Number);
+                const isInRange = (value >= min) && (value < (max || Infinity));
+                if (isInRange) {
+                    targetRange = numbers;
+                    break;
+                }
+            }
+            // 高亮对应编号的格子
+            if (targetRange) {
+                const items = document.getElementsByClassName('grid-item');
+                for (const num of targetRange) {
+                    // 注意：格子是按1-20顺序创建的，直接取索引num-1
+                    items[num - 1].classList.add('highlight');
+                }
+            }
+        }
+
+        // 初始化网格
+        initGrid();
+
+        const form = document.getElementById('inputForm');
+        const resultDiv = document.getElementById('result');
+
+        form.addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            // 获取用户输入的值
+            const weight = parseFloat(document.getElementById('weight').value);
+            const height = parseFloat(document.getElementById('height').value);
+            const length = parseFloat(document.getElementById('length').value);
+            const trips = parseInt(document.getElementById('trips').value);
+
+            // 计算 value
+            const value = alpha * (weight / (carMass + weight)) +
+                          beta * (length / height) +
+                          gamma * ((g * height) / carPower) +
+                          delta * trips;
+
+            // 显示结果
+            resultDiv.textContent = `计算得到的 value 值为: ${value.toFixed(4)}`;
+            
+            // 新增：高亮对应网格
+            highlightGrid(value);
+        });
+    </script>
+</body>
+</html>
