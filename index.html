@@ -285,11 +285,16 @@
             const length = parseFloat(document.getElementById('length').value);
             const trips = parseInt(document.getElementById('trips').value);
 
-            // 计算 value
-            const value = alpha * (weight / (carMass + weight)) +
-                          beta * (length / height) +
-                          gamma * ((g * height) / carPower) +
-                          delta * trips;
+            let value = alpha * (weight / (carMass + weight)) +
+            beta * (length / height) +
+            gamma * ((g * height) / carPower) +
+            delta * trips;
+
+            if (value >= 130) {
+                value = 129.9999;
+            } else if (value < 0) {
+                value = 0; 
+            }
 
             // 显示结果
             resultDiv.textContent = `计算得到的 value 值为: ${value.toFixed(4)}`;
